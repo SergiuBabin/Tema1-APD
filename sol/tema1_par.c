@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
-#include "pthread_barrier_mac.h"
+//#include "pthread_barrier_mac.h"
 #define min(x, y) (((x) < (y) ? (x) : (y)))
 
 
@@ -16,8 +16,8 @@ char *in_filename_mandelbrot;
 char *out_filename_julia;
 char *out_filename_mandelbrot;
 
-int width, height;
-int **result;
+int width, height, widthMan, heightMan;
+int **resultJul, **resultMan;
 int P;
 pthread_barrier_t barrier;
 
@@ -124,7 +124,6 @@ int **allocate_memory(int width, int height)
 void free_memory(int **result, int height)
 {
     int i;
-
     for (i = 0; i < height; i++) {
         free(result[i]);
     }
@@ -153,7 +152,7 @@ void run_julia(int thread_id)
                 step++;
             }
             
-            result[h][w] = step % 256;
+            resultJul[h][w] = step % 256;
         }
         pthread_barrier_wait(&barrier);
     }
@@ -162,11 +161,11 @@ void run_julia(int thread_id)
     start = thread_id * (double)height/2 / P;
     end = min((thread_id + 1) * (double)height/2 / P, (double)height/2);
     for (i = start; i < end; i++) {
-        int *aux = result[i];
-        result[i] = result[height - i - 1];
-        result[height - i - 1] = aux;
+        int *aux = resultJul[i];
+        resultJul[i] = resultJul[height - i - 1];
+        resultJul[height - i - 1] = aux;
     }
-    pthread_barrier_wait(&barrier);
+    //pthread_barrier_wait(&barrier);
 }
 
 // ruleaza algoritmul Mandelbrot
@@ -192,7 +191,7 @@ void run_mandelbrot(int thread_id)
                 step++;
             }
 
-            result[h][w] = step % 256;
+            resultMan[h][w] = step % 256;
         }
         pthread_barrier_wait(&barrier);
     }
@@ -201,9 +200,9 @@ void run_mandelbrot(int thread_id)
     start = thread_id * (double)height/2 / P;
     end = min((thread_id + 1) * (double)height/2 / P, (double)height/2);
     for (i = start; i < end; i++) {
-        int *aux = result[i];
-        result[i] = result[height - i - 1];
-        result[height - i - 1] = aux;
+        int *aux = resultMan[i];
+        resultMan[i] = resultMan[height - i - 1];
+        resultMan[height - i - 1] = aux;
     }
     
     
@@ -212,21 +211,34 @@ void run_mandelbrot(int thread_id)
 void *run_alg(void *arg)
 {
     int thread_id = *(int *)arg;
-    run_julia(thread_id);
-    
-    write_output_file(out_filename_julia, result, width, height);
-    free_memory(result, height);
+    read_input_file(in_filename_julia, &par);
 
-        
+    width = (par.x_max - par.x_min) / par.resolution;
+    height = (par.y_max - par.y_min) / par.resolution;
+
+    resultJul = allocate_memory(width, height);
+
+    pthread_barrier_wait(&barrier);
+    run_julia(thread_id);
+    pthread_barrier_wait(&barrier);
+
+    write_output_file(out_filename_julia, resultJul, width, height);
+    
+    //free_memory(result, height, thread_id);
+
+       
     read_input_file(in_filename_mandelbrot, &par);
     width = (par.x_max - par.x_min) / par.resolution;
     height = (par.y_max - par.y_min) / par.resolution;
-    result = allocate_memory(width, height);
-    
-    
-    write_output_file(out_filename_mandelbrot, result, width, height);
+    resultMan = allocate_memory(width, height);
+    pthread_barrier_wait(&barrier);
+    run_mandelbrot(thread_id);
+    pthread_barrier_wait(&barrier);
+    write_output_file(out_filename_mandelbrot, resultMan, width, height);
+
     pthread_exit(NULL);
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -245,12 +257,7 @@ int main(int argc, char *argv[])
     // - se ruleaza algoritmul
     // - se scrie rezultatul in fisierul de iesire
     // - se elibereaza memoria alocata
-    read_input_file(in_filename_julia, &par);
-
-    width = (par.x_max - par.x_min) / par.resolution;
-    height = (par.y_max - par.y_min) / par.resolution;
-
-    result = allocate_memory(width, height);
+    
     
     for (i = 0; i < P; i++) {
         thread_id[i] = i;
