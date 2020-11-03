@@ -180,7 +180,7 @@ void *run_mandelbrot(void *arg)
 	for (w = 0; w < width; w++) {
         start = thread_id * (double)height / P;
         end = min((thread_id + 1) * (double)height / P, height);
-		for (h = 0; h < height; h++) {
+		for (h = start; h < end; h++) {
 			complex c = { .a = w * par.resolution + par.x_min,
 							.b = h * par.resolution + par.y_min };
 			complex z = { .a = 0, .b = 0 };
@@ -203,7 +203,7 @@ void *run_mandelbrot(void *arg)
 	// transforma rezultatul din coordonate matematice in coordonate ecran
     start = thread_id * (double)height/2 / P;
     end = min((thread_id + 1) * (double)height/2 / P, (double)height/2);
-	for (i = 0; i < height / 2; i++) {
+	for (i = start; i < end; i++) {
 		int *aux = result[i];
 		result[i] = result[height - i - 1];
 		result[height - i - 1] = aux;
