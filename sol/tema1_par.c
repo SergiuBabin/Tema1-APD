@@ -211,14 +211,7 @@ void run_mandelbrot(int thread_id)
 void *run_alg(void *arg)
 {
     int thread_id = *(int *)arg;
-    read_input_file(in_filename_julia, &par);
-
-    width = (par.x_max - par.x_min) / par.resolution;
-    height = (par.y_max - par.y_min) / par.resolution;
-
-    resultJul = allocate_memory(width, height);
-
-    pthread_barrier_wait(&barrier);
+    //pthread_barrier_wait(&barrier);
     run_julia(thread_id);
     pthread_barrier_wait(&barrier);
 
@@ -257,7 +250,13 @@ int main(int argc, char *argv[])
     // - se ruleaza algoritmul
     // - se scrie rezultatul in fisierul de iesire
     // - se elibereaza memoria alocata
-    
+   
+    read_input_file(in_filename_julia, &par);
+
+    width = (par.x_max - par.x_min) / par.resolution;
+    height = (par.y_max - par.y_min) / par.resolution;
+
+    resultJul = allocate_memory(width, height);
     
     for (i = 0; i < P; i++) {
         thread_id[i] = i;
@@ -280,3 +279,4 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
