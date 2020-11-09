@@ -34,7 +34,7 @@ typedef struct _params {
     complex c_julia;
 } params;
 
-params par;
+params par, parMan;
 
 // citeste argumentele programului
 void get_args(int argc, char **argv)
@@ -165,7 +165,6 @@ void run_julia(int thread_id)
         resultJul[i] = resultJul[height - i - 1];
         resultJul[height - i - 1] = aux;
     }
-    //pthread_barrier_wait(&barrier);
 }
 
 // ruleaza algoritmul Mandelbrot
@@ -173,16 +172,16 @@ void run_mandelbrot(int thread_id)
 {
     int w, h, i;
     int start, end;
-    for (w = 0; w < width; w++) {
-        start = thread_id * (double)height / P;
-        end = min((thread_id + 1) * (double)height / P, height);
+    for (w = 0; w < widthMan; w++) {
+        start = thread_id * (double)heightMan / P;
+        end = min((thread_id + 1) * (double)heightMan / P, heightMan);
         for (h = start; h < end; h++) {
-            complex c = { .a = w * par.resolution + par.x_min,
-                            .b = h * par.resolution + par.y_min };
+            complex c = { .a = w * parMan.resolution + parMan.x_min,
+                            .b = h * parMan.resolution + parMan.y_min };
             complex z = { .a = 0, .b = 0 };
             int step = 0;
 
-            while (sqrt(pow(z.a, 2.0) + pow(z.b, 2.0)) < 2.0 && step < par.iterations) {
+            while (sqrt(pow(z.a, 2.0) + pow(z.b, 2.0)) < 2.0 && step < parMan.iterations) {
                 complex z_aux = { .a = z.a, .b = z.b };
 
                 z.a = pow(z_aux.a, 2.0) - pow(z_aux.b, 2.0) + c.a;
@@ -197,12 +196,12 @@ void run_mandelbrot(int thread_id)
     }
 
     // transforma rezultatul din coordonate matematice in coordonate ecran
-    start = thread_id * (double)height/2 / P;
-    end = min((thread_id + 1) * (double)height/2 / P, (double)height/2);
+    start = thread_id * (double)heightMan/2 / P;
+    end = min((thread_id + 1) * (double)heightMan/2 / P, (double)heightMan/2);
     for (i = start; i < end; i++) {
         int *aux = resultMan[i];
-        resultMan[i] = resultMan[height - i - 1];
-        resultMan[height - i - 1] = aux;
+        resultMan[i] = resultMan[heightMan - i - 1];
+        resultMan[heightMan - i - 1] = aux;
     }
     
     
@@ -211,23 +210,18 @@ void run_mandelbrot(int thread_id)
 void *run_alg(void *arg)
 {
     int thread_id = *(int *)arg;
-    //pthread_barrier_wait(&barrier);
+    
     run_julia(thread_id);
     pthread_barrier_wait(&barrier);
 
     write_output_file(out_filename_julia, resultJul, width, height);
     
-    //free_memory(result, height, thread_id);
 
-       
-    read_input_file(in_filename_mandelbrot, &par);
-    width = (par.x_max - par.x_min) / par.resolution;
-    height = (par.y_max - par.y_min) / par.resolution;
-    resultMan = allocate_memory(width, height);
     pthread_barrier_wait(&barrier);
     run_mandelbrot(thread_id);
     pthread_barrier_wait(&barrier);
-    write_output_file(out_filename_mandelbrot, resultMan, width, height);
+
+    write_output_file(out_filename_mandelbrot, resultMan, widthMan, heightMan);
 
     pthread_exit(NULL);
 }
@@ -257,6 +251,11 @@ int main(int argc, char *argv[])
     height = (par.y_max - par.y_min) / par.resolution;
 
     resultJul = allocate_memory(width, height);
+
+    read_input_file(in_filename_mandelbrot, &parMan);
+    widthMan = (parMan.x_max - parMan.x_min) / parMan.resolution;
+    heightMan = (parMan.y_max - parMan.y_min) / parMan.resolution;
+    resultMan = allocate_memory(widthMan, heightMan);
     
     for (i = 0; i < P; i++) {
         thread_id[i] = i;
@@ -268,7 +267,6 @@ int main(int argc, char *argv[])
     }
     pthread_barrier_destroy(&barrier);
     
-    //run_julia();
 
     // Mandelbrot:
     // - se citesc parametrii de intrare
@@ -279,4 +277,5 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
 
